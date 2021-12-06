@@ -1,7 +1,4 @@
 #!/usr/bin/python3
-import random
-
-import numpy as np
 
 from TSPSubproblem import TSPSubproblem
 from which_pyqt import PYQT_VER
@@ -209,20 +206,19 @@ class TSPSolver:
         results['pruned'] = pruned_states
         return results
 
-    # This is the entry point for the group project algorithm: A* ALGORITHM.
+    # This is the entry point for the group project A* algorithm.
     # Returns a results dictionary for GUI that contains the cost of the best solution,
-    # time spent to find best solution, total number of solutions found during search, the best
-    # solution found, and three null values not used for this implementation.
+    # time spent to find best solution, total number of solutions found by A* during search,
+    # the best solution found, the max queue size, total number of states created, and number of
+    # pruned states (0 for A*).
     def fancy(self, time_allowance=60.0):
         results = {}
         total_states = 0
-        # for debugging:
-        scenario = self._scenario
         cities = self._scenario.getCities()
         num_cities = len(cities)
         start_time = time.time()
 
-        # initialize cost matrix (et al.). [from][to] = [row][col]
+        # initialize cost matrix (et al.); [from][to] = [row][col]
         # runs in O(n^2) time; not a limiting step
         cost_matrix = np.full((num_cities, num_cities), np.inf)
         for i in range(num_cities):
@@ -235,14 +231,14 @@ class TSPSolver:
         parent_problem = TSPSubproblem(cost_matrix, 0, city_availability, city_order, first_city)
         total_states += 1
 
-        # subproblems is kept as a plain priority queue
-        subproblems = [parent_problem]
-        max_heap_size = 1
+        subproblems = [parent_problem]  # A priority queue of states
+        max_heap_size = len(subproblems)
 
-        # This while loop can loop up to n! times, but it's closer to exponential in the average
-        # case
-        while len(subproblems) > 0:  # and time.time() - start_time < time_allowance:
-            next_problem = heapq.heappop(subproblems)  # heappop runs in O(nlogn)
+        # This can loop up to n! times, but it's closer to exponential in the average case
+        # because the optimal solution will usually be found after searching an exponential
+        # number of states.
+        while len(subproblems) > 0 and time.time() - start_time < time_allowance:
+            next_problem = heapq.heappop(subproblems)  # heappop runs in O(logn)
             city_availability = next_problem.city_availability
             new_problems = []
             for i in range(len(city_availability)):
@@ -271,13 +267,14 @@ class TSPSolver:
                     heapq.heappush(subproblems, problem)
                     # heappush runs in O(logn)
                     # The heap stores up to n! states, each of which take O(n^2) space,
-                    # but with good pruning it becomes closer to 2^n states
+                    # but in most cases the solution will be found long before then (closer to
+                    # exponential space than factorial)
                     if len(subproblems) > max_heap_size:
                         max_heap_size = len(subproblems)
 
-        # ONLY REACHES THIS POINT IF NO SOLUTION IS FOUND WITH A*
-        end_time = time.time()
+        # ONLY REACHES THIS POINT IF NO SOLUTION IS FOUND WITH A* AFTER 60s (indicated by count = 0)
         solution = self.greedy()
+        end_time = time.time()
         results['time'] = end_time - start_time
         results['count'] = 0
         results['cost'] = solution['cost']
