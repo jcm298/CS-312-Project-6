@@ -1,6 +1,8 @@
 #!/usr/bin/python3
 import random
 
+import numpy as np
+
 from TSPSubproblem import TSPSubproblem
 from which_pyqt import PYQT_VER
 
@@ -128,6 +130,8 @@ class TSPSolver:
         greedy_sol = self.greedy()  # Runs in O(n^3) time
         bssf = greedy_sol['solution']
         bssf_cost = greedy_sol['cost']
+        # for debugging:
+        scenario = self._scenario
         cities = self._scenario.getCities()
         num_cities = len(cities)
         start_time = time.time()
@@ -212,6 +216,8 @@ class TSPSolver:
     def fancy(self, time_allowance=60.0):
         results = {}
         total_states = 0
+        # for debugging:
+        scenario = self._scenario
         cities = self._scenario.getCities()
         num_cities = len(cities)
         start_time = time.time()
@@ -235,7 +241,7 @@ class TSPSolver:
 
         # This while loop can loop up to n! times, but it's closer to exponential in the average
         # case
-        while len(subproblems) > 0 and time.time() - start_time < time_allowance:
+        while len(subproblems) > 0:  # and time.time() - start_time < time_allowance:
             next_problem = heapq.heappop(subproblems)  # heappop runs in O(nlogn)
             city_availability = next_problem.city_availability
             new_problems = []
@@ -252,14 +258,15 @@ class TSPSolver:
                 # checking is_complete_solution takes O(n) time
                 if problem.is_complete_solution():
                     solution = TSPSolution(problem.city_order)
-                    results['cost'] = solution.cost
-                    results['time'] = time.time() - start_time
-                    results['count'] = 1
-                    results['solution'] = solution
-                    results['max'] = max_heap_size
-                    results['total'] = total_states
-                    results['pruned'] = 0
-                    return results
+                    if solution.cost != np.inf:
+                        results['time'] = time.time() - start_time
+                        results['solution'] = solution
+                        results['cost'] = solution.cost
+                        results['max'] = max_heap_size
+                        results['total'] = total_states
+                        results['count'] = 1
+                        results['pruned'] = 0
+                        return results
                 else:
                     heapq.heappush(subproblems, problem)
                     # heappush runs in O(logn)
