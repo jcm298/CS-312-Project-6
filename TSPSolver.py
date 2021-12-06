@@ -123,7 +123,6 @@ class TSPSolver:
         # factorial.
         results = {}
         solution_count = 0
-        max_heap_size = 0
         total_states = 0
         pruned_states = 0
         greedy_sol = self.greedy()  # Runs in O(n^3) time
@@ -211,4 +210,72 @@ class TSPSolver:
     # time spent to find best solution, total number of solutions found during search, the best
     # solution found, and three null values not used for this implementation.
     def fancy(self, time_allowance=60.0):
-        pass
+        results = {}
+        total_states = 0
+        cities = self._scenario.getCities()
+        num_cities = len(cities)
+        start_time = time.time()
+
+        # initialize cost matrix (et al.). [from][to] = [row][col]
+        # runs in O(n^2) time; not a limiting step
+        cost_matrix = np.full((num_cities, num_cities), np.inf)
+        for i in range(num_cities):
+            for j in range(num_cities):
+                cost_matrix[i][j] = cities[i].costTo(cities[j])
+        city_availability = np.full(num_cities, True)
+        city_order = []
+        first_city = cities[0]
+
+        parent_problem = TSPSubproblem(cost_matrix, 0, city_availability, city_order, first_city)
+        total_states += 1
+
+        # subproblems is kept as a plain priority queue
+        subproblems = [parent_problem]
+        max_heap_size = 1
+
+        # This while loop can loop up to n! times, but it's closer to exponential in the average
+        # case
+        while len(subproblems) > 0 and time.time() - start_time < time_allowance:
+            next_problem = heapq.heappop(subproblems)  # heappop runs in O(nlogn)
+            city_availability = next_problem.city_availability
+            new_problems = []
+            for i in range(len(city_availability)):
+                if city_availability[i]:
+                    total_states += 1
+                    new_problem = TSPSubproblem(next_problem.cost_matrix,
+                                                next_problem.lower_bound,
+                                                city_availability,
+                                                next_problem.city_order, cities[i])
+                    new_problems.append(new_problem)
+            # Analyzing new subproblems takes O(n^2)
+            for problem in new_problems:  # loops up to n times
+                # checking is_complete_solution takes O(n) time
+                if problem.is_complete_solution():
+                    solution = TSPSolution(problem.city_order)
+                    results['cost'] = solution.cost
+                    results['time'] = time.time() - start_time
+                    results['count'] = 1
+                    results['solution'] = solution
+                    results['max'] = max_heap_size
+                    results['total'] = total_states
+                    results['pruned'] = 0
+                    return results
+                else:
+                    heapq.heappush(subproblems, problem)
+                    # heappush runs in O(logn)
+                    # The heap stores up to n! states, each of which take O(n^2) space,
+                    # but with good pruning it becomes closer to 2^n states
+                    if len(subproblems) > max_heap_size:
+                        max_heap_size = len(subproblems)
+
+        # ONLY REACHES THIS POINT IF NO SOLUTION IS FOUND WITH A*
+        end_time = time.time()
+        solution = self.greedy()
+        results['time'] = end_time - start_time
+        results['count'] = 0
+        results['cost'] = solution['cost']
+        results['solution'] = solution['solution']
+        results['max'] = max_heap_size
+        results['total'] = total_states
+        results['pruned'] = 0
+        return results
